@@ -1,0 +1,147 @@
+<html>
+
+<head>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/purecss@3.0.0/build/pure-min.css"
+        integrity="sha384-X38yfunGUhNzHpBaEBsWLO+A0HDYOQi8ufWDkZ0k9e0eXz/tH3II7uKZ9msv++Ls" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <style>
+        body {
+            padding: 8px;
+        }
+
+        #class_form {
+            padding: 8px;
+        }
+
+        .class-btn {
+            color: white;
+            margin: 4px;
+        }
+
+        .class-btn-clr {
+            background-color: dimgrey;
+        }
+
+        .class-btn-red {
+            background: lightcoral;
+        }
+
+        #filename-select {
+            margin-top: 20px;
+            margin-bottom: -20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="pure-g">
+        <div class="pure-u-2-3">
+            <form class="pure-form">
+                <select id="filename-select">
+                    {% for image in images %}
+                    <option
+                        style="background-color: {% if not labels[image]|default(False, True) %}lightcoral{% else %}lavender{% endif %};"
+                        value="{{ loop.index0 }}" class="option-image">
+                        {{ loop.index }} -- {{ image }}{% if labels[image] %} -- {{ labels[image] }}{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+        <div class="pure-u-1-3">
+            <h3><a class="pure-button" id="button-prev" href="#">🡄</a>
+                <span id="index"></span> / {{ total }}
+                <a class="pure-button" id="button-next" href="#">🡆</a>
+                <span id="message"></span>
+            </h3>
+        </div>
+    </div>
+    <div class="pure-g">
+        <div class="pure-u-2-3">
+            <img class="pure-img" id="image" src="">
+        </div>
+        <div class="pure-u-1-3">
+            <form class="pure-form" id="class_form">
+                <h4>Pick Label</h4>
+                {% for class in classes %}
+                <button id="class-btn-{{ class }}" class="pure-button class-btn class-btn-clr" value="{{ class }}">
+                    {{ class }}
+                </button>
+                {% endfor %}
+                <hr>
+                <button class="pure-button class-btn class-btn-red" value="null">
+                    Remove Label
+                </button>
+            </form>
+        </div>
+    </div>
+</body>
+
+<script>
+    var index = 0;
+    var filename = "";
+
+    $.expr[':'].textEquals = function (el, i, m) {
+        var searchText = m[3];
+        var match = $(el).text().trim().match("^" + searchText + "$")
+        return match && match.length > 0;
+    }
+
+    $(function () {
+
+        function fetch_image(_idx) {
+            $.get("/get_image/" + _idx, function (data) {
+                index = parseInt(data['index']);
+                filename = data['filename'];
+                console.log(data);
+                $("#index").text(index + 1);
+                $("#filename-select").val(index);
+                $("#image").attr("src", "data:image/png;base64," + data['data']);
+                $(".class-btn").css("background", "");
+                $(".class-btn:textEquals(" + data['label'] + ")").css("background", "navy");
+            });
+        }
+
+        function save_label(_idx, label) {
+            $.post("/save_label/" + _idx + "/" + label, function (data) {
+                $("#message").text(data['result']);
+                if (data['label']) $(".option-image:eq(" + index + ")").css("background", "lavender");
+                else $(".option-image:eq(" + index + ")").css("background", "lightcoral");
+                setTimeout(function () {
+                    $("#message").text("");
+                }, 1000);
+                if (label != "null") fetch_image(index + 1);
+                else fetch_image(index);
+            });
+        }
+
+        fetch_image(index);
+
+        $(".class-btn").on("click", function (e) {
+            e.preventDefault();
+            save_label(index, $(this).val());
+            return false
+        });
+
+        $("#filename-select").on("change", function (e) {
+            e.preventDefault();
+            fetch_image($(this).val());
+            return false
+        });
+
+        $("#button-prev").on("click", function (e) {
+            e.preventDefault();
+            fetch_image(index - 1);
+            return false
+        });
+
+        $("#button-next").on("click", function (e) {
+            e.preventDefault();
+            fetch_image(index + 1);
+            return false
+        });
+
+    });
+</script>
+
+</html>
